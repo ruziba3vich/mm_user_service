@@ -22,6 +22,7 @@ const (
 	UserService_SignUp_FullMethodName               = "/user_protos.UserService/SignUp"
 	UserService_Login_FullMethodName                = "/user_protos.UserService/Login"
 	UserService_Logout_FullMethodName               = "/user_protos.UserService/Logout"
+	UserService_RefreshToken_FullMethodName         = "/user_protos.UserService/RefreshToken"
 	UserService_AddProfilePicture_FullMethodName    = "/user_protos.UserService/AddProfilePicture"
 	UserService_RemoveProfilePicture_FullMethodName = "/user_protos.UserService/RemoveProfilePicture"
 	UserService_UpdateUser_FullMethodName           = "/user_protos.UserService/UpdateUser"
@@ -35,6 +36,7 @@ type UserServiceClient interface {
 	SignUp(ctx context.Context, in *SignUpRequest, opts ...grpc.CallOption) (*SignUpResponse, error)
 	Login(ctx context.Context, in *LoginRequest, opts ...grpc.CallOption) (*LoginResponse, error)
 	Logout(ctx context.Context, in *LogoutRequest, opts ...grpc.CallOption) (*LogoutResponse, error)
+	RefreshToken(ctx context.Context, in *RefreshTokenRequest, opts ...grpc.CallOption) (*RefreshTokenResponse, error)
 	AddProfilePicture(ctx context.Context, in *AddProfilePictureRequest, opts ...grpc.CallOption) (*AddProfilePictureResponse, error)
 	RemoveProfilePicture(ctx context.Context, in *RemoveProfilePictureRequest, opts ...grpc.CallOption) (*RemoveProfilePictureResponse, error)
 	UpdateUser(ctx context.Context, in *UpdateUserRequest, opts ...grpc.CallOption) (*UpdateUserResponse, error)
@@ -73,6 +75,16 @@ func (c *userServiceClient) Logout(ctx context.Context, in *LogoutRequest, opts 
 	cOpts := append([]grpc.CallOption{grpc.StaticMethod()}, opts...)
 	out := new(LogoutResponse)
 	err := c.cc.Invoke(ctx, UserService_Logout_FullMethodName, in, out, cOpts...)
+	if err != nil {
+		return nil, err
+	}
+	return out, nil
+}
+
+func (c *userServiceClient) RefreshToken(ctx context.Context, in *RefreshTokenRequest, opts ...grpc.CallOption) (*RefreshTokenResponse, error) {
+	cOpts := append([]grpc.CallOption{grpc.StaticMethod()}, opts...)
+	out := new(RefreshTokenResponse)
+	err := c.cc.Invoke(ctx, UserService_RefreshToken_FullMethodName, in, out, cOpts...)
 	if err != nil {
 		return nil, err
 	}
@@ -126,6 +138,7 @@ type UserServiceServer interface {
 	SignUp(context.Context, *SignUpRequest) (*SignUpResponse, error)
 	Login(context.Context, *LoginRequest) (*LoginResponse, error)
 	Logout(context.Context, *LogoutRequest) (*LogoutResponse, error)
+	RefreshToken(context.Context, *RefreshTokenRequest) (*RefreshTokenResponse, error)
 	AddProfilePicture(context.Context, *AddProfilePictureRequest) (*AddProfilePictureResponse, error)
 	RemoveProfilePicture(context.Context, *RemoveProfilePictureRequest) (*RemoveProfilePictureResponse, error)
 	UpdateUser(context.Context, *UpdateUserRequest) (*UpdateUserResponse, error)
@@ -148,6 +161,9 @@ func (UnimplementedUserServiceServer) Login(context.Context, *LoginRequest) (*Lo
 }
 func (UnimplementedUserServiceServer) Logout(context.Context, *LogoutRequest) (*LogoutResponse, error) {
 	return nil, status.Errorf(codes.Unimplemented, "method Logout not implemented")
+}
+func (UnimplementedUserServiceServer) RefreshToken(context.Context, *RefreshTokenRequest) (*RefreshTokenResponse, error) {
+	return nil, status.Errorf(codes.Unimplemented, "method RefreshToken not implemented")
 }
 func (UnimplementedUserServiceServer) AddProfilePicture(context.Context, *AddProfilePictureRequest) (*AddProfilePictureResponse, error) {
 	return nil, status.Errorf(codes.Unimplemented, "method AddProfilePicture not implemented")
@@ -232,6 +248,24 @@ func _UserService_Logout_Handler(srv interface{}, ctx context.Context, dec func(
 	}
 	handler := func(ctx context.Context, req interface{}) (interface{}, error) {
 		return srv.(UserServiceServer).Logout(ctx, req.(*LogoutRequest))
+	}
+	return interceptor(ctx, in, info, handler)
+}
+
+func _UserService_RefreshToken_Handler(srv interface{}, ctx context.Context, dec func(interface{}) error, interceptor grpc.UnaryServerInterceptor) (interface{}, error) {
+	in := new(RefreshTokenRequest)
+	if err := dec(in); err != nil {
+		return nil, err
+	}
+	if interceptor == nil {
+		return srv.(UserServiceServer).RefreshToken(ctx, in)
+	}
+	info := &grpc.UnaryServerInfo{
+		Server:     srv,
+		FullMethod: UserService_RefreshToken_FullMethodName,
+	}
+	handler := func(ctx context.Context, req interface{}) (interface{}, error) {
+		return srv.(UserServiceServer).RefreshToken(ctx, req.(*RefreshTokenRequest))
 	}
 	return interceptor(ctx, in, info, handler)
 }
@@ -326,6 +360,10 @@ var UserService_ServiceDesc = grpc.ServiceDesc{
 		{
 			MethodName: "Logout",
 			Handler:    _UserService_Logout_Handler,
+		},
+		{
+			MethodName: "RefreshToken",
+			Handler:    _UserService_RefreshToken_Handler,
 		},
 		{
 			MethodName: "AddProfilePicture",
