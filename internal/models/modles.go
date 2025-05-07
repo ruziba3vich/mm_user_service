@@ -20,4 +20,9 @@ type (
 		ExpiresAt  time.Time `gorm:"not null"`
 		LastUsedAt time.Time
 	}
+
+	ProfilePicture struct {
+		FileName string `gorm:"not null"`
+		UserID   string `gorm:"not null"`
+	}
 )
