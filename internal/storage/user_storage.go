@@ -346,3 +346,44 @@ func (s *UserStorage) GetUserData(ctx context.Context, userID string) (*models.U
 		UserCurrentProfilePic: currentPic,
 	}, nil
 }
+
+func (s *UserStorage) CreateRefreshToken(ctx context.Context, token *models.RefreshToken) error {
+	if token == nil {
+		return errors.New("token cannot be nil")
+	}
+
+	if token.UserID == "" || token.TokenHash == "" || token.DeviceID == "" {
+		return errors.New("missing required token fields")
+	} // TODO: put this part into service layer
+
+	return s.db.WithContext(ctx).Create(token).Error
+}
+
+func (s *UserStorage) UpdateRefreshToken(ctx context.Context, token *models.RefreshToken) error {
+	if token == nil {
+		return errors.New("token cannot be nil")
+	}
+
+	if token.ID == "" {
+		return errors.New("token ID is required for update")
+	} // TODO: put this part into service layer
+
+	return s.db.WithContext(ctx).
+		Model(&models.RefreshToken{}).
+		Where("id = ?", token.ID).
+		Updates(token).Error
+}
+
+func (s *UserStorage) DeleteRefreshToken(ctx context.Context, token *models.RefreshToken) error {
+	if token == nil {
+		return errors.New("token cannot be nil")
+	}
+
+	if token.ID == "" {
+		return errors.New("token ID is required for deletion")
+	} // TODO: put this part into service layer
+
+	return s.db.WithContext(ctx).
+		Where("id = ?", token.ID).
+		Delete(&models.RefreshToken{}).Error
+}
