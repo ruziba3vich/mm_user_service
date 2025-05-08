@@ -109,3 +109,43 @@ func (s *UserStorage) RemoveProfilePicture(ctx context.Context, userId, fileName
 
 	return nil
 }
+
+func (s *UserStorage) UpdateUser(ctx context.Context, filter map[string]any) (*models.User, error) {
+	if len(filter) == 0 {
+		return nil, errors.New("empty filter provided")
+	}
+
+	// Extract user ID from filter (required for update)
+	userId, ok := filter["id"].(string)
+	if !ok || userId == "" {
+		return nil, errors.New("user id is required in filter")
+	}
+
+	// Remove id from update fields since we don't want to update it
+	updateFields := make(map[string]any)
+	for k, v := range filter {
+		if k != "id" {
+			updateFields[k] = v
+		}
+	}
+
+	if len(updateFields) == 0 {
+		return nil, errors.New("no valid fields to update")
+	} // TODO: the logi should be in service layer
+
+	var user models.User
+	err := s.db.WithContext(ctx).
+		Model(&user).
+		Where("id = ?", userId).
+		Updates(updateFields).
+		First(&user).Error
+
+	if err != nil {
+		if errors.Is(err, gorm.ErrRecordNotFound) {
+			return nil, errors.New("user not found")
+		}
+		return nil, err
+	}
+
+	return &user, nil
+}
