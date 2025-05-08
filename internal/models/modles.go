@@ -33,5 +33,6 @@ type (
 		ID        string `gorm:"primaryKey;type:uuid"`
 		Following string `gorm:"type:uuid;not null;index"`
 		Follower  string `gorm:"type:uuid;not null;index"`
+		Version   uint   `gorm:"default:1"`
 	}
 )
