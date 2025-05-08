@@ -12,10 +12,16 @@ type (
 		CreateUser(ctx context.Context, user *models.User) (*models.User, error)
 		ValidateUserCredentials(ctx context.Context, username string, passwordHash string) (*models.User, error)
 		Logout(context.Context, *user_protos.LogoutRequest) (*user_protos.LogoutResponse, error)
-		RefreshToken(context.Context, *user_protos.RefreshTokenRequest) (*user_protos.RefreshTokenResponse, error)
 		AddProfilePicture(ctx context.Context, userId string, fileName string, pictureId string) error
-		RemoveProfilePicture(context.Context, *user_protos.RemoveProfilePictureRequest) (*user_protos.RemoveProfilePictureResponse, error)
-		UpdateUser(context.Context, *user_protos.UpdateUserRequest) (*user_protos.UpdateUserResponse, error)
-		GetUserById(context.Context, *user_protos.GetUserByIdRequest) (*user_protos.GetUserByIdResponse, error)
+		RemoveProfilePicture(ctx context.Context, userId, fileName string) error
+		UpdateUser(ctx context.Context, filter map[string]any) (*models.User, error)
+		GetUserById(ctx context.Context, userID string) (*models.User, error)
+		GetUserProfilePics(ctx context.Context, userID string) ([]*models.ProfilePicture, error)
+		CheckUserAFollowsUserB(ctx context.Context, userA, userB string) error
+		FollowUserBByUserA(ctx context.Context, userA, userB string) error
+		GetUserData(ctx context.Context, userID string) (*models.UserData, error)
+		CreateRefreshToken(ctx context.Context, token *models.RefreshToken) error
+		UpdateRefreshToken(ctx context.Context, token *models.RefreshToken) error
+		DeleteRefreshToken(ctx context.Context, token *models.RefreshToken) error
 	}
 )
