@@ -2,7 +2,9 @@ package storage
 
 import (
 	"context"
+	"database/sql"
 	"errors"
+	"strings"
 
 	"github.com/ruziba3vich/mm_user_service/internal/models"
 	"gorm.io/gorm"
@@ -213,4 +215,91 @@ func (s *UserStorage) CheckUserAFollowsUserB(ctx context.Context, userA, userB s
 	}
 
 	return true, nil
+}
+
+func (s *UserStorage) FollowUserBByUserA(ctx context.Context, userA, userB, generatedID string) error {
+	const maxRetries = 3 // TODO: get this value from config
+
+	for i := range maxRetries {
+		err := s.db.WithContext(ctx).Transaction(func(tx *gorm.DB) error {
+			if userA == "" || userB == "" {
+				return errors.New("both user IDs are required")
+			}
+			if userA == userB {
+				return errors.New("user cannot follow themselves")
+			}
+
+			var targetUser models.User
+			if err := tx.Select("id").First(&targetUser, "id = ?", userB).Error; err != nil {
+				if errors.Is(err, gorm.ErrRecordNotFound) {
+					return errors.New("target user not found")
+				}
+				return err
+			}
+
+			var existingFollow models.Followings
+			err := tx.Where("follower = ? AND following = ?", userA, userB).
+				First(&existingFollow).Error
+			if err == nil {
+				return errors.New("already following this user")
+			}
+			if !errors.Is(err, gorm.ErrRecordNotFound) {
+				return err
+			} // TODO: use CheckUserAFollowsUserB instead, and move this into service layer
+
+			var userAInfo models.User
+			if err := tx.Select("following_version").
+				Where("id = ?", userA).
+				First(&userAInfo).Error; err != nil {
+				return err
+			}
+			expectedVersion := userAInfo.FollowingVersion
+
+			newFollow := models.Followings{
+				ID:        generatedID,
+				Follower:  userA,
+				Following: userB,
+			}
+			if err := tx.Create(&newFollow).Error; err != nil {
+				if isDuplicateKeyError(err) {
+					return errors.New("follow relationship already exists")
+				}
+				return err
+			}
+
+			result := tx.Model(&models.User{}).
+				Where("id = ? AND following_version = ?", userA, expectedVersion).
+				Update("following_version", gorm.Expr("following_version + 1"))
+
+			if result.RowsAffected == 0 {
+				return errors.New("version conflict")
+			}
+
+			if err := tx.Model(&models.User{}).
+				Where("id = ?", userB).
+				Update("followers_count", gorm.Expr("followers_count + 1")).Error; err != nil {
+				return err
+			}
+
+			return nil
+		}, &sql.TxOptions{
+			Isolation: sql.LevelReadCommitted,
+			ReadOnly:  false,
+		})
+
+		if err == nil {
+			return nil
+		}
+		if err.Error() == "version conflict" && i < maxRetries {
+			continue
+		}
+		return err
+	}
+
+	return errors.New("failed to follow user after multiple retries due to version conflicts")
+}
+
+func isDuplicateKeyError(err error) bool {
+	return strings.Contains(err.Error(), "duplicate key") ||
+		strings.Contains(err.Error(), "23505")
 }
