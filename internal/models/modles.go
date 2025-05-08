@@ -4,12 +4,13 @@ import "time"
 
 type (
 	User struct {
-		ID             string    `gorm:"primaryKey;type:uuid"`
-		FullName       string    `gorm:"not null"`
-		Username       string    `gorm:"unique;not null"`
-		PasswordHash   string    `gorm:"not null"`
-		CreatedAt      time.Time `gorm:"autoCreateTime"`
-		FollowersCount int       `gorm:"default:0"`
+		ID               string    `gorm:"primaryKey;type:uuid"`
+		FullName         string    `gorm:"not null"`
+		Username         string    `gorm:"unique;not null"`
+		PasswordHash     string    `gorm:"not null"`
+		CreatedAt        time.Time `gorm:"autoCreateTime"`
+		FollowersCount   int       `gorm:"default:0"`
+		FollowingVersion uint      `gorm:"default:1"`
 	}
 
 	RefreshToken struct {
@@ -33,6 +34,5 @@ type (
 		ID        string `gorm:"primaryKey;type:uuid"`
 		Following string `gorm:"type:uuid;not null;index"`
 		Follower  string `gorm:"type:uuid;not null;index"`
-		Version   uint   `gorm:"default:1"`
 	}
 )
