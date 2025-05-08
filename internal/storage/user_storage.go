@@ -303,3 +303,46 @@ func isDuplicateKeyError(err error) bool {
 	return strings.Contains(err.Error(), "duplicate key") ||
 		strings.Contains(err.Error(), "23505")
 }
+
+// UserData represents the consolidated user information
+type UserData struct {
+	UserFullName          string
+	UserCurrentProfilePic string
+	UserUsername          string
+}
+
+func (s *UserStorage) GetUserData(ctx context.Context, userID string) (*models.UserData, error) {
+	if userID == "" {
+		return nil, errors.New("user ID is required")
+	}
+
+	var user models.User
+	err := s.db.WithContext(ctx).
+		Select("full_name", "username").
+		Where("id = ?", userID).
+		First(&user).
+		Error
+	if err != nil {
+		if errors.Is(err, gorm.ErrRecordNotFound) {
+			return nil, errors.New("user not found")
+		}
+		return nil, err
+	}
+
+	profilePic, err := s.getCurrentProfilePicURL(ctx, userID)
+	var currentPic string
+	if err != nil {
+		if !errors.Is(err, gorm.ErrRecordNotFound) {
+			return nil, err
+		}
+		currentPic = ""
+	} else {
+		currentPic = profilePic
+	}
+
+	return &models.UserData{
+		UserFullName:          user.FullName,
+		UserUsername:          user.Username,
+		UserCurrentProfilePic: currentPic,
+	}, nil
+}
