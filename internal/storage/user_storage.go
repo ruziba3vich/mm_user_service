@@ -75,3 +75,17 @@ func (s *UserStorage) ValidateUserCredentials(ctx context.Context, username, pas
 
 	return &user, nil
 }
+
+func (s *UserStorage) AddProfilePicture(ctx context.Context, userId string, fileName string, pictureId string) error {
+	if userId == "" || fileName == "" || pictureId == "" {
+		return errors.New("userId, fileName, and pictureId are required")
+	} // TODO: this part should be in service layer
+
+	profilePic := models.ProfilePicture{
+		ID:       pictureId,
+		FileName: fileName,
+		UserID:   userId,
+	}
+
+	return s.db.WithContext(ctx).Create(&profilePic).Error
+}
