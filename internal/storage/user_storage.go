@@ -42,7 +42,7 @@ func (s *UserStorage) CreateUser(ctx context.Context, user *models.User) (*model
 
 	if user.FullName == "" || user.Username == "" || user.PasswordHash == "" {
 		return nil, errors.New("full name, username, and password hash are required")
-	}
+	} // TODO: this part should be in service layer
 
 	err := s.db.WithContext(ctx).Create(user).Error
 	if err != nil {
@@ -53,4 +53,25 @@ func (s *UserStorage) CreateUser(ctx context.Context, user *models.User) (*model
 	}
 
 	return user, nil
+}
+
+func (s *UserStorage) ValidateUserCredentials(ctx context.Context, username, passwordHash string) (*models.User, error) {
+	if username == "" || passwordHash == "" {
+		return nil, errors.New("username and password hash are required")
+	} // TODO: this part should be in service layer
+
+	var user models.User
+	err := s.db.WithContext(ctx).
+		Where("username = ? AND password_hash = ?", username, passwordHash).
+		First(&user).
+		Error
+
+	if err != nil {
+		if errors.Is(err, gorm.ErrRecordNotFound) {
+			return nil, errors.New("invalid credentials")
+		}
+		return nil, err
+	}
+
+	return &user, nil
 }
