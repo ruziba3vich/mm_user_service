@@ -387,3 +387,24 @@ func (s *UserStorage) DeleteRefreshToken(ctx context.Context, token *models.Refr
 		Where("id = ?", token.ID).
 		Delete(&models.RefreshToken{}).Error
 }
+
+func (s *UserStorage) GetRefreshToken(ctx context.Context, tokenID string) (*models.RefreshToken, error) {
+	if tokenID == "" {
+		return nil, errors.New("token ID is required")
+	} // TODO: move this into service layer
+
+	var token models.RefreshToken
+	err := s.db.WithContext(ctx).
+		Where("id = ?", tokenID).
+		First(&token).
+		Error
+
+	if err != nil {
+		if errors.Is(err, gorm.ErrRecordNotFound) {
+			return nil, errors.New("refresh token not found")
+		}
+		return nil, err
+	}
+
+	return &token, nil
+}
