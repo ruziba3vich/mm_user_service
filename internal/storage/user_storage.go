@@ -170,3 +170,22 @@ func (s *UserStorage) GetUserById(ctx context.Context, userID string) (*models.U
 
 	return &user, nil
 }
+
+func (s *UserStorage) GetUserProfilePics(ctx context.Context, userID string) ([]*models.ProfilePicture, error) {
+	if userID == "" {
+		return nil, errors.New("user ID is required")
+	} // TODO: this part should be in service layer
+
+	var pictures []*models.ProfilePicture
+	err := s.db.WithContext(ctx).
+		Where("user_id = ?", userID).
+		Order("created_at DESC").
+		Find(&pictures).
+		Error
+
+	if err != nil {
+		return nil, err
+	}
+
+	return pictures, nil
+}
