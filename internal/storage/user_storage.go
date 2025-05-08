@@ -189,3 +189,28 @@ func (s *UserStorage) GetUserProfilePics(ctx context.Context, userID string) ([]
 
 	return pictures, nil
 }
+
+func (s *UserStorage) CheckUserAFollowsUserB(ctx context.Context, userA, userB string) error {
+	if userA == "" || userB == "" {
+		return errors.New("both user IDs are required")
+	}
+
+	if userA == userB {
+		return errors.New("cannot check if user follows themselves")
+	} // TODO: this part should be in service layer
+
+	var following models.Followings
+	err := s.db.WithContext(ctx).
+		Where("follower = ? AND following = ?", userA, userB).
+		First(&following).
+		Error
+
+	if err != nil {
+		if errors.Is(err, gorm.ErrRecordNotFound) {
+			return errors.New("user does not follow the target user")
+		}
+		return err
+	}
+
+	return nil
+}
