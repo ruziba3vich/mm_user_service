@@ -149,3 +149,24 @@ func (s *UserStorage) UpdateUser(ctx context.Context, filter map[string]any) (*m
 
 	return &user, nil
 }
+
+func (s *UserStorage) GetUserById(ctx context.Context, userID string) (*models.User, error) {
+	if userID == "" {
+		return nil, errors.New("user ID is required")
+	} // TODO: this part should be in service layer
+
+	var user models.User
+	err := s.db.WithContext(ctx).
+		Where("id = ?", userID).
+		First(&user).
+		Error
+
+	if err != nil {
+		if errors.Is(err, gorm.ErrRecordNotFound) {
+			return nil, errors.New("user not found")
+		}
+		return nil, err
+	}
+
+	return &user, nil
+}
