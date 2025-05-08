@@ -4,7 +4,7 @@ import "time"
 
 type (
 	User struct {
-		ID             string    `gorm:"primaryKey;type:uuid;default:uuid_generate_v4()"`
+		ID             string    `gorm:"primaryKey;type:uuid"`
 		FullName       string    `gorm:"not null"`
 		Username       string    `gorm:"unique;not null"`
 		PasswordHash   string    `gorm:"not null"`
@@ -13,7 +13,7 @@ type (
 	}
 
 	RefreshToken struct {
-		ID         string    `gorm:"primaryKey;type:uuid;default:uuid_generate_v4()"`
+		ID         string    `gorm:"primaryKey"`
 		UserID     string    `gorm:"type:uuid;not null;index"`
 		TokenHash  string    `gorm:"not null"`
 		DeviceID   string    `gorm:"not null"`
@@ -23,14 +23,14 @@ type (
 	}
 
 	ProfilePicture struct {
-		ID        string    `gorm:"primaryKey;type:uuid;default:uuid_generate_v4()"`
+		ID        string    `gorm:"primaryKey;type:uuid"`
 		FileName  string    `gorm:"not null"`
 		UserID    string    `gorm:"type:uuid;not null;index"`
 		CreatedAt time.Time `gorm:"autoCreateTime"`
 	}
 
 	Followings struct {
-		ID        string `gorm:"primaryKey;type:uuid;default:uuid_generate_v4()"`
+		ID        string `gorm:"primaryKey;type:uuid"`
 		Following string `gorm:"type:uuid;not null;index"`
 		Follower  string `gorm:"type:uuid;not null;index"`
 	}
