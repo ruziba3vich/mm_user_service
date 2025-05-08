@@ -89,3 +89,23 @@ func (s *UserStorage) AddProfilePicture(ctx context.Context, userId string, file
 
 	return s.db.WithContext(ctx).Create(&profilePic).Error
 }
+
+func (s *UserStorage) RemoveProfilePicture(ctx context.Context, userId, fileName string) error {
+	if userId == "" || fileName == "" {
+		return errors.New("userId and fileName are required")
+	}
+
+	result := s.db.WithContext(ctx).
+		Where("user_id = ? AND file_name = ?", userId, fileName).
+		Delete(&models.ProfilePicture{})
+
+	if result.Error != nil {
+		return result.Error
+	}
+
+	if result.RowsAffected == 0 {
+		return errors.New("profile picture not found")
+	}
+
+	return nil
+}
