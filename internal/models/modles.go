@@ -23,9 +23,10 @@ type (
 	}
 
 	ProfilePicture struct {
-		ID       string `gorm:"primaryKey;type:uuid;default:uuid_generate_v4()"`
-		FileName string `gorm:"not null"`
-		UserID   string `gorm:"type:uuid;not null;index"`
+		ID        string    `gorm:"primaryKey;type:uuid;default:uuid_generate_v4()"`
+		FileName  string    `gorm:"not null"`
+		UserID    string    `gorm:"type:uuid;not null;index"`
+		CreatedAt time.Time `gorm:"autoCreateTime"`
 	}
 
 	Followings struct {
