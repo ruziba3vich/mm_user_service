@@ -35,4 +35,8 @@ type (
 		Following string `gorm:"type:uuid;not null;index"`
 		Follower  string `gorm:"type:uuid;not null;index"`
 	}
+
+	UserData struct {
+		UserFullName, UserCurrentProfilePic, UserUsername string
+	}
 )
