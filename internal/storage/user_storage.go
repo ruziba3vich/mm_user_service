@@ -34,3 +34,23 @@ func (r *UserStorage) getCurrentProfilePicURL(ctx context.Context, userID string
 	}
 	return pic.FileName, nil
 }
+
+func (s *UserStorage) CreateUser(ctx context.Context, user *models.User) (*models.User, error) {
+	if user == nil {
+		return nil, errors.New("user cannot be nil")
+	}
+
+	if user.FullName == "" || user.Username == "" || user.PasswordHash == "" {
+		return nil, errors.New("full name, username, and password hash are required")
+	}
+
+	err := s.db.WithContext(ctx).Create(user).Error
+	if err != nil {
+		if errors.Is(err, gorm.ErrDuplicatedKey) {
+			return nil, errors.New("username already exists")
+		}
+		return nil, err
+	}
+
+	return user, nil
+}
