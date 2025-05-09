@@ -231,7 +231,7 @@ func (s *UserService) AddProfilePicture(ctx context.Context, req *user_protos.Ad
 	}
 
 	return &user_protos.AddProfilePictureResponse{
-		Message: "",
+		Message: "created successfully",
 	}, nil
 }
 
@@ -274,9 +274,6 @@ func (s *UserService) FollowUser(ctx context.Context, req *user_protos.FollowUse
 	}
 	err := s.storage.FollowUserBByUserA(ctx, req.GetFollowerId(), req.GetFollowToId(), followID)
 	if err != nil {
-		// if errors.Is(err, storage.ErrNotFound) {
-		// 	return nil, status.Error(codes.NotFound, "user not found")
-		// }
 		s.logger.Error("failed to follow user", map[string]any{
 			"error":     err.Error(),
 			"follower":  req.GetFollowerId(),
@@ -300,18 +297,15 @@ func (s *UserService) Unfollow(ctx context.Context, req *user_protos.UnfollowReq
 	} else if !following {
 		return nil, status.Error(codes.AlreadyExists, "user does not follow")
 	}
-	// err := s.storage.FollowUserBByUserA(ctx, req.GetFollowerId(), req.GetFollowToId(), followID)
-	// if err != nil {
-	// 	// if errors.Is(err, storage.ErrNotFound) {
-	// 	// 	return nil, status.Error(codes.NotFound, "user not found")
-	// 	// }
-	// 	s.logger.Error("failed to follow user", map[string]any{
-	// 		"error":     err.Error(),
-	// 		"follower":  req.GetUnfollowerId(),
-	// 		"following": req.GetUnfollowFromId(),
-	// 	})
-	// 	return nil, status.Error(codes.Internal, "failed to unfollow user")
-	// }
+	err := s.storage.UnfollowUserBByUserA(ctx, req.GetUnfollowerId(), req.GetUnfollowFromId())
+	if err != nil {
+		s.logger.Error("failed to follow user", map[string]any{
+			"error":     err.Error(),
+			"follower":  req.GetUnfollowerId(),
+			"following": req.GetUnfollowFromId(),
+		})
+		return nil, status.Error(codes.Internal, "failed to unfollow user")
+	}
 
 	return &user_protos.UnfollowResponse{
 		Success: true,
