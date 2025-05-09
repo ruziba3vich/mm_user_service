@@ -79,6 +79,9 @@ func (s *UserService) Login(ctx context.Context, req *user_protos.LoginRequest) 
 		s.logger.Warn("invalid login attempt", map[string]any{"username": req.GetUsername()})
 		return nil, status.Error(codes.Unauthenticated, "invalid credentials")
 	}
+	if !checkPassword(user.PasswordHash, req.GetPassword()) {
+		return nil, status.Error(codes.Unauthenticated, "invalid credentials")
+	}
 
 	accessToken, refreshToken, err := generateTokens(
 		user.ID,
@@ -104,6 +107,7 @@ func (s *UserService) Login(ctx context.Context, req *user_protos.LoginRequest) 
 	}
 
 	return &user_protos.LoginResponse{
+		User:         user.ToProto(),
 		AccessToken:  accessToken,
 		RefreshToken: refreshToken.Token,
 	}, nil

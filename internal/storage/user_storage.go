@@ -59,7 +59,7 @@ func (s *UserStorage) CreateUser(ctx context.Context, user *models.User) (*model
 func (s *UserStorage) ValidateUserCredentials(ctx context.Context, username, passwordHash string) (*models.User, error) {
 	var user models.User
 	err := s.db.WithContext(ctx).
-		Where("username = ? AND password_hash = ?", username, passwordHash).
+		Where("username = ?", username).
 		First(&user).
 		Error
 
