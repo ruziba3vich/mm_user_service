@@ -3,6 +3,7 @@ package models
 import (
 	"time"
 
+	"github.com/golang-jwt/jwt/v5"
 	"github.com/ruziba3vich/mm_user_service/genprotos/genprotos/user_protos"
 )
 
@@ -42,6 +43,18 @@ type (
 
 	UserData struct {
 		UserFullName, UserCurrentProfilePic, UserUsername string
+	}
+
+	TokenWithMetadata struct {
+		Token     string
+		ID        string
+		ExpiresAt time.Time
+	}
+
+	TokenClaims struct {
+		jwt.RegisteredClaims
+		TokenID string `json:"tid"`
+		UserID  string `json:"uid"`
 	}
 )
 
