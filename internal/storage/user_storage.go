@@ -7,6 +7,8 @@ import (
 	"strings"
 
 	"github.com/ruziba3vich/mm_user_service/internal/models"
+	"google.golang.org/grpc/codes"
+	"google.golang.org/grpc/status"
 	"gorm.io/gorm"
 )
 
@@ -42,10 +44,6 @@ func (s *UserStorage) CreateUser(ctx context.Context, user *models.User) (*model
 		return nil, errors.New("user cannot be nil")
 	}
 
-	if user.FullName == "" || user.Username == "" || user.PasswordHash == "" {
-		return nil, errors.New("full name, username, and password hash are required")
-	} // TODO: this part should be in service layer
-
 	err := s.db.WithContext(ctx).Create(user).Error
 	if err != nil {
 		if errors.Is(err, gorm.ErrDuplicatedKey) {
@@ -58,10 +56,6 @@ func (s *UserStorage) CreateUser(ctx context.Context, user *models.User) (*model
 }
 
 func (s *UserStorage) ValidateUserCredentials(ctx context.Context, username, passwordHash string) (*models.User, error) {
-	if username == "" || passwordHash == "" {
-		return nil, errors.New("username and password hash are required")
-	} // TODO: this part should be in service layer
-
 	var user models.User
 	err := s.db.WithContext(ctx).
 		Where("username = ? AND password_hash = ?", username, passwordHash).
@@ -117,13 +111,11 @@ func (s *UserStorage) UpdateUser(ctx context.Context, filter map[string]any) (*m
 		return nil, errors.New("empty filter provided")
 	}
 
-	// Extract user ID from filter (required for update)
 	userId, ok := filter["id"].(string)
 	if !ok || userId == "" {
 		return nil, errors.New("user id is required in filter")
 	}
 
-	// Remove id from update fields since we don't want to update it
 	updateFields := make(map[string]any)
 	for k, v := range filter {
 		if k != "id" {
@@ -219,15 +211,8 @@ func (s *UserStorage) CheckUserAFollowsUserB(ctx context.Context, userA, userB s
 
 func (s *UserStorage) FollowUserBByUserA(ctx context.Context, userA, userB, generatedID string) error {
 	const maxRetries = 3 // TODO: get this value from config
-
 	for i := range maxRetries {
 		err := s.db.WithContext(ctx).Transaction(func(tx *gorm.DB) error {
-			if userA == "" || userB == "" {
-				return errors.New("both user IDs are required")
-			}
-			if userA == userB {
-				return errors.New("user cannot follow themselves")
-			}
 
 			var targetUser models.User
 			if err := tx.Select("id").First(&targetUser, "id = ?", userB).Error; err != nil {
@@ -241,7 +226,7 @@ func (s *UserStorage) FollowUserBByUserA(ctx context.Context, userA, userB, gene
 			err := tx.Where("follower = ? AND following = ?", userA, userB).
 				First(&existingFollow).Error
 			if err == nil {
-				return errors.New("already following this user")
+				return status.Error(codes.AlreadyExists, "already following this user")
 			}
 			if !errors.Is(err, gorm.ErrRecordNotFound) {
 				return err
@@ -262,7 +247,7 @@ func (s *UserStorage) FollowUserBByUserA(ctx context.Context, userA, userB, gene
 			}
 			if err := tx.Create(&newFollow).Error; err != nil {
 				if isDuplicateKeyError(err) {
-					return errors.New("follow relationship already exists")
+					return status.Error(codes.AlreadyExists, "already following this user")
 				}
 				return err
 			}
@@ -272,7 +257,7 @@ func (s *UserStorage) FollowUserBByUserA(ctx context.Context, userA, userB, gene
 				Update("following_version", gorm.Expr("following_version + 1"))
 
 			if result.RowsAffected == 0 {
-				return errors.New("version conflict")
+				return status.Error(codes.Internal, "version conflict")
 			}
 
 			if err := tx.Model(&models.User{}).
@@ -292,7 +277,7 @@ func (s *UserStorage) FollowUserBByUserA(ctx context.Context, userA, userB, gene
 		}
 		if err.Error() == "version conflict" && i < maxRetries {
 			continue
-		}
+		} // TODO: need to create a custom error and compare with it
 		return err
 	}
 
@@ -304,18 +289,7 @@ func isDuplicateKeyError(err error) bool {
 		strings.Contains(err.Error(), "23505")
 }
 
-// UserData represents the consolidated user information
-type UserData struct {
-	UserFullName          string
-	UserCurrentProfilePic string
-	UserUsername          string
-}
-
 func (s *UserStorage) GetUserData(ctx context.Context, userID string) (*models.UserData, error) {
-	if userID == "" {
-		return nil, errors.New("user ID is required")
-	}
-
 	var user models.User
 	err := s.db.WithContext(ctx).
 		Select("full_name", "username").
@@ -324,9 +298,9 @@ func (s *UserStorage) GetUserData(ctx context.Context, userID string) (*models.U
 		Error
 	if err != nil {
 		if errors.Is(err, gorm.ErrRecordNotFound) {
-			return nil, errors.New("user not found")
+			return nil, status.Error(codes.NotFound, "user not found")
 		}
-		return nil, err
+		return nil, status.Error(codes.Internal, "failed to get user data")
 	}
 
 	profilePic, err := s.getCurrentProfilePicURL(ctx, userID)
@@ -352,10 +326,6 @@ func (s *UserStorage) CreateRefreshToken(ctx context.Context, token *models.Refr
 		return errors.New("token cannot be nil")
 	}
 
-	if token.UserID == "" || token.TokenHash == "" || token.DeviceID == "" {
-		return errors.New("missing required token fields")
-	} // TODO: put this part into service layer
-
 	return s.db.WithContext(ctx).Create(token).Error
 }
 
@@ -363,10 +333,6 @@ func (s *UserStorage) UpdateRefreshToken(ctx context.Context, token *models.Refr
 	if token == nil {
 		return errors.New("token cannot be nil")
 	}
-
-	if token.ID == "" {
-		return errors.New("token ID is required for update")
-	} // TODO: put this part into service layer
 
 	return s.db.WithContext(ctx).
 		Model(&models.RefreshToken{}).
@@ -379,20 +345,12 @@ func (s *UserStorage) DeleteRefreshToken(ctx context.Context, token *models.Refr
 		return errors.New("token cannot be nil")
 	}
 
-	if token.ID == "" {
-		return errors.New("token ID is required for deletion")
-	} // TODO: put this part into service layer
-
 	return s.db.WithContext(ctx).
 		Where("id = ?", token.ID).
 		Delete(&models.RefreshToken{}).Error
 }
 
 func (s *UserStorage) GetRefreshToken(ctx context.Context, tokenID string) (*models.RefreshToken, error) {
-	if tokenID == "" {
-		return nil, errors.New("token ID is required")
-	} // TODO: move this into service layer
-
 	var token models.RefreshToken
 	err := s.db.WithContext(ctx).
 		Where("id = ?", tokenID).
