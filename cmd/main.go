@@ -99,5 +99,5 @@ func registerHooks(
 }
 
 func newLogger() (*logger.Logger, error) {
-	return logger.NewLogger("/app/logs/article_service.log")
+	return logger.NewLogger("/app/article_service.log")
 }

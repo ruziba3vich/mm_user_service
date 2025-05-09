@@ -53,7 +53,7 @@ func LoadConfig() *Config {
 
 	return &Config{
 		MinIoCfg: &MinIoConfig{
-			Endpoint:        getEnv("MINIO_ENDPOINT", "localhost:9000"),
+			Endpoint:        getEnv("MINIO_ENDPOINT", "minio:9000"),
 			AccessKeyID:     getEnv("MINIO_ACCESS_KEY", "admin"),
 			SecretAccessKey: getEnv("MINIO_SECRET_KEY", "secretpass"),
 			Bucket:          getEnv("MINIO_BUCKET", "mediumlike"),
