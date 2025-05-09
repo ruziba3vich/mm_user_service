@@ -1,6 +1,10 @@
 package models
 
-import "time"
+import (
+	"time"
+
+	"github.com/ruziba3vich/mm_user_service/genprotos/genprotos/user_protos"
+)
 
 type (
 	User struct {
@@ -40,3 +44,11 @@ type (
 		UserFullName, UserCurrentProfilePic, UserUsername string
 	}
 )
+
+func (u *User) ToProto() *user_protos.User {
+	return &user_protos.User{
+		Id:       u.ID,
+		FullName: u.FullName,
+		Username: u.Username,
+	}
+}
