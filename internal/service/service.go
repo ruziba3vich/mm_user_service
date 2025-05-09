@@ -12,6 +12,7 @@ import (
 	"github.com/oklog/ulid/v2"
 	"github.com/ruziba3vich/mm_user_service/genprotos/genprotos/user_protos"
 	"github.com/ruziba3vich/mm_user_service/internal/models"
+	"github.com/ruziba3vich/mm_user_service/internal/repos"
 	"github.com/ruziba3vich/mm_user_service/internal/storage"
 	lgger "github.com/ruziba3vich/prodonik_lgger"
 	"golang.org/x/crypto/bcrypt"
@@ -20,13 +21,13 @@ import (
 )
 
 type UserService struct {
-	storage *storage.UserStorage
+	storage repos.UserRepo
 	logger  *lgger.Logger
 	user_protos.UnimplementedUserServiceServer
 	fileStorage *storage.MinioStorage
 }
 
-func NewUserService(storage *storage.UserStorage, fileStorage *storage.MinioStorage, logger *lgger.Logger) *UserService {
+func NewUserService(storage repos.UserRepo, fileStorage *storage.MinioStorage, logger *lgger.Logger) *UserService {
 	return &UserService{
 		storage:     storage,
 		logger:      logger,
@@ -329,7 +330,7 @@ func (s *UserService) GetFollowers(ctx context.Context, req *user_protos.GetFoll
 
 	var response user_protos.GetFollowersResponse
 	response.Pagination.Users = make([]*user_protos.User, len(followers))
-	response.Pagination.TotalCount = totalCount
+	response.Pagination.TotalCount = int32(totalCount)
 
 	for i := range followers {
 		userData, err := s.storage.GetUserData(ctx, req.UserId)
