@@ -5,6 +5,7 @@ import (
 	"crypto/sha256"
 	"encoding/hex"
 	"errors"
+	"fmt"
 	"math/rand"
 	"time"
 
@@ -392,9 +393,22 @@ func generateTokens(userID string, secret string, accessExpiry time.Duration, re
 }
 
 func generateUUID() string {
-	t := time.Now()
-	entropy := ulid.Monotonic(rand.New(rand.NewSource(t.UnixNano())), 0)
-	return ulid.MustNew(ulid.Timestamp(t), entropy).String()
+	now := time.Now()
+	entropySource := ulid.Monotonic(rand.New(rand.NewSource(now.UnixNano())), 0)
+	generatedID := ulid.MustNew(ulid.Timestamp(now), entropySource)
+
+	uuidBytes := make([]byte, 16)
+	copy(uuidBytes[:10], generatedID[:10])
+
+	uuidBytes[6] = (uuidBytes[6] & 0x0f) | 0x40
+	uuidBytes[8] = (uuidBytes[8] & 0x3f) | 0x80
+
+	return fmt.Sprintf("%08x-%04x-%04x-%04x-%012x",
+		uuidBytes[0:4],
+		uuidBytes[4:6],
+		uuidBytes[6:8],
+		uuidBytes[8:10],
+		uuidBytes[10:16])
 }
 
 func hashToken(token string) string {
