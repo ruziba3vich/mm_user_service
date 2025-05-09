@@ -28,8 +28,9 @@ type UserService struct {
 
 func NewUserService(storage *storage.UserStorage, fileStorage *storage.MinioStorage, logger *lgger.Logger) *UserService {
 	return &UserService{
-		storage: storage,
-		logger:  logger,
+		storage:     storage,
+		logger:      logger,
+		fileStorage: fileStorage,
 	}
 }
 
