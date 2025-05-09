@@ -236,24 +236,22 @@ func (s *UserService) AddProfilePicture(ctx context.Context, req *user_protos.Ad
 }
 
 func (s *UserService) RemoveProfilePicture(ctx context.Context, req *user_protos.RemoveProfilePictureRequest) (*user_protos.RemoveProfilePictureResponse, error) {
-	// if req.GetUserId() == "" || req.GetFileName() == "" {
-	// 	return nil, status.Error(codes.InvalidArgument, "user ID and file name are required")
-	// }
+	if req.GetUserId() == "" || req.GetFileName() == "" {
+		return nil, status.Error(codes.InvalidArgument, "user ID and file name are required")
+	}
 
-	// err := s.storage.RemoveProfilePicture(ctx, req.GetUserId(), req.GetFileName())
-	// if err != nil {
-	// 	if errors.Is(err, storage.ErrNotFound) {
-	// 		return nil, status.Error(codes.NotFound, "profile picture not found")
-	// 	}
-	// 	s.logger.Error("failed to remove profile picture", map[string]any{
-	// 		"error":  err.Error(),
-	// 		"userId": req.GetUserId(),
-	// 	})
-	// 	return nil, status.Error(codes.Internal, "failed to remove profile picture")
-	// }
+	err := s.storage.RemoveProfilePicture(ctx, req.GetUserId(), req.GetFileName())
+	if err != nil {
+		s.logger.Error("failed to remove profile picture", map[string]any{
+			"error":  err.Error(),
+			"userId": req.GetUserId(),
+		})
+		return nil, status.Error(codes.Internal, "failed to remove profile picture")
+	}
+	go s.fileStorage.DeleteFile(ctx, req.FileName)
 
 	return &user_protos.RemoveProfilePictureResponse{
-		Message: "",
+		Message: "success",
 	}, nil
 }
 
