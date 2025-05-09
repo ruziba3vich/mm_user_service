@@ -321,22 +321,10 @@ func (s *UserService) GetFollowers(ctx context.Context, req *user_protos.GetFoll
 	return nil, status.Error(codes.Unimplemented, "get followers not implemented")
 }
 
-type TokenWithMetadata struct {
-	Token     string
-	ID        string
-	ExpiresAt time.Time
-}
-
-type TokenClaims struct {
-	jwt.RegisteredClaims
-	TokenID string `json:"tid"`
-	UserID  string `json:"uid"`
-}
-
-func generateTokens(userID string, secret string, accessExpiry time.Duration, refreshExpiry time.Duration) (accessToken string, refreshToken TokenWithMetadata, err error) {
+func generateTokens(userID string, secret string, accessExpiry time.Duration, refreshExpiry time.Duration) (accessToken string, refreshToken models.TokenWithMetadata, err error) {
 
 	accessTokenID := generateUUID()
-	accessClaims := TokenClaims{
+	accessClaims := models.TokenClaims{
 		RegisteredClaims: jwt.RegisteredClaims{
 			ExpiresAt: jwt.NewNumericDate(time.Now().Add(accessExpiry)),
 			IssuedAt:  jwt.NewNumericDate(time.Now()),
@@ -349,12 +337,12 @@ func generateTokens(userID string, secret string, accessExpiry time.Duration, re
 	accessJWT := jwt.NewWithClaims(jwt.SigningMethodHS256, accessClaims)
 	accessToken, err = accessJWT.SignedString([]byte(secret))
 	if err != nil {
-		return "", TokenWithMetadata{}, err
+		return "", models.TokenWithMetadata{}, err
 	}
 
 	// Generate refresh token
 	refreshTokenID := generateUUID()
-	refreshClaims := TokenClaims{
+	refreshClaims := models.TokenClaims{
 		RegisteredClaims: jwt.RegisteredClaims{
 			ExpiresAt: jwt.NewNumericDate(time.Now().Add(refreshExpiry)),
 			IssuedAt:  jwt.NewNumericDate(time.Now()),
@@ -367,10 +355,10 @@ func generateTokens(userID string, secret string, accessExpiry time.Duration, re
 	refreshJWT := jwt.NewWithClaims(jwt.SigningMethodHS256, refreshClaims)
 	refreshTokenStr, err := refreshJWT.SignedString([]byte(secret))
 	if err != nil {
-		return "", TokenWithMetadata{}, err
+		return "", models.TokenWithMetadata{}, err
 	}
 
-	refreshToken = TokenWithMetadata{
+	refreshToken = models.TokenWithMetadata{
 		Token:     refreshTokenStr,
 		ID:        refreshTokenID,
 		ExpiresAt: time.Now().Add(refreshExpiry),
@@ -405,10 +393,10 @@ func checkPassword(hashedPassword, plainPassword string) bool {
 	return err == nil
 }
 
-func verifyToken(tokenString, secret string) (*TokenClaims, error) {
+func verifyToken(tokenString, secret string) (*models.TokenClaims, error) {
 	token, err := jwt.ParseWithClaims(
 		tokenString,
-		&TokenClaims{},
+		&models.TokenClaims{},
 		func(token *jwt.Token) (interface{}, error) {
 			if _, ok := token.Method.(*jwt.SigningMethodHMAC); !ok {
 				return nil, errors.New("unexpected signing method")
@@ -425,7 +413,7 @@ func verifyToken(tokenString, secret string) (*TokenClaims, error) {
 		return nil, errors.New("invalid token")
 	}
 
-	if claims, ok := token.Claims.(*TokenClaims); ok && token.Valid {
+	if claims, ok := token.Claims.(*models.TokenClaims); ok && token.Valid {
 		if claims.UserID == "" {
 			return nil, errors.New("missing user ID in token")
 		}
