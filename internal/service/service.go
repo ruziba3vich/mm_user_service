@@ -23,9 +23,10 @@ type UserService struct {
 	storage *storage.UserStorage
 	logger  *lgger.Logger
 	user_protos.UnimplementedUserServiceServer
+	fileStorage *storage.MinioStorage
 }
 
-func NewUserService(storage *storage.UserStorage, logger *lgger.Logger) *UserService {
+func NewUserService(storage *storage.UserStorage, fileStorage *storage.MinioStorage, logger *lgger.Logger) *UserService {
 	return &UserService{
 		storage: storage,
 		logger:  logger,
@@ -210,24 +211,24 @@ func (s *UserService) GetUserData(ctx context.Context, req *user_protos.GetUserD
 }
 
 func (s *UserService) AddProfilePicture(ctx context.Context, req *user_protos.AddProfilePictureRequest) (*user_protos.AddProfilePictureResponse, error) {
-	// if req.GetUserId() == "" || req.GetFileName() == "" {
-	// 	return nil, status.Error(codes.InvalidArgument, "user ID and file name are required")
-	// }
+	if req.GetUserId() == "" || req.GetFileName() == "" || req.Picture == nil || len(req.Picture) == 0 {
+		return nil, status.Error(codes.InvalidArgument, "user ID and file name are required")
+	}
 
-	// // Generate picture ID if not provided
-	// pictureID := req.GetPicture()
-	// if pictureID == "" {
-	// 	pictureID = generateUUID()
-	// }
+	pictureID := generateUUID()
+	fileName, _, err := s.fileStorage.CreateFile(ctx, req.FileName, req.Picture)
+	if err != nil {
+		return nil, err
+	}
 
-	// err := s.storage.AddProfilePicture(ctx, req.GetUserId(), req.GetFileName(), pictureID)
-	// if err != nil {
-	// 	s.logger.Error("failed to add profile picture", map[string]any{
-	// 		"error":  err.Error(),
-	// 		"userId": req.GetUserId(),
-	// 	})
-	// 	return nil, status.Error(codes.Internal, "failed to add profile picture")
-	// }
+	err = s.storage.AddProfilePicture(ctx, req.GetUserId(), fileName, pictureID)
+	if err != nil {
+		s.logger.Error("failed to add profile picture", map[string]any{
+			"error":  err.Error(),
+			"userId": req.GetUserId(),
+		})
+		return nil, status.Error(codes.Internal, "failed to add profile picture")
+	}
 
 	return &user_protos.AddProfilePictureResponse{
 		Message: "",
