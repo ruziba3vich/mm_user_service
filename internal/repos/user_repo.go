@@ -25,5 +25,6 @@ type (
 		DeleteRefreshToken(ctx context.Context, token *models.RefreshToken) error
 		GetRefreshToken(ctx context.Context, tokenID string) (*models.RefreshToken, error)
 		UnfollowUserBByUserA(ctx context.Context, userA, userB string) error
+		GetFollowers(ctx context.Context, userID string) (*user_protos.GetFollowersResponse, error)
 	}
 )
