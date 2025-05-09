@@ -436,10 +436,8 @@ func (s *UserStorage) GetRefreshToken(ctx context.Context, tokenID string) (*mod
 
 func (s *UserStorage) GetFollowers(ctx context.Context, userID string, page, limit int32) ([]*models.User, int32, error) {
 	offset := (page - 1) * limit
-
-	var totalCount int64
-	var followerIDs []string
 	var followers []*models.User
+	var totalCount int64
 
 	err := s.db.WithContext(ctx).Transaction(func(tx *gorm.DB) error {
 		if err := tx.Exec("SET TRANSACTION ISOLATION LEVEL REPEATABLE READ").Error; err != nil {
@@ -452,23 +450,22 @@ func (s *UserStorage) GetFollowers(ctx context.Context, userID string, page, lim
 			return err
 		}
 
-		if err := tx.Model(&models.Followings{}).
-			Select("follower").
-			Where("following = ?", userID).
+		return tx.Select("users.*").
+			Joins("JOIN followings ON followings.follower = users.id").
+			Where("followings.following = ?", userID).
 			Offset(int(offset)).
 			Limit(int(limit)).
-			Order("created_at DESC").
-			Pluck("follower", &followerIDs).Error; err != nil {
-			return err
-		}
-
-		return nil
+			Find(&followers).Error
 	}, &sql.TxOptions{
 		Isolation: sql.LevelRepeatableRead,
 	})
 
 	if err != nil {
 		return nil, 0, err
+	}
+
+	if followers == nil {
+		followers = []*models.User{}
 	}
 
 	return followers, int32(totalCount), nil
