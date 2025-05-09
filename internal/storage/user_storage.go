@@ -87,15 +87,14 @@ func (s *UserStorage) AddProfilePicture(ctx context.Context, userId string, file
 }
 
 func (s *UserStorage) RemoveProfilePicture(ctx context.Context, userId, fileName string) error {
-	if userId == "" || fileName == "" {
-		return errors.New("userId and fileName are required")
-	}
-
 	result := s.db.WithContext(ctx).
 		Where("user_id = ? AND file_name = ?", userId, fileName).
 		Delete(&models.ProfilePicture{})
 
 	if result.Error != nil {
+		if errors.Is(gorm.ErrRecordNotFound, result.Error) {
+			return status.Error(codes.NotFound, "profile picture not found")
+		}
 		return result.Error
 	}
 
