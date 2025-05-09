@@ -5,6 +5,7 @@ import (
 
 	"github.com/golang-jwt/jwt/v5"
 	"github.com/ruziba3vich/mm_user_service/genprotos/genprotos/user_protos"
+	"google.golang.org/protobuf/types/known/timestamppb"
 )
 
 type (
@@ -60,8 +61,9 @@ type (
 
 func (u *User) ToProto() *user_protos.User {
 	return &user_protos.User{
-		Id:       u.ID,
-		FullName: u.FullName,
-		Username: u.Username,
+		Id:        u.ID,
+		FullName:  u.FullName,
+		Username:  u.Username,
+		CreatedAt: timestamppb.New(u.CreatedAt),
 	}
 }
