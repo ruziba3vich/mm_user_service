@@ -68,7 +68,7 @@ func LoadConfig() *Config {
 		PsqlCfg: &PsqlConfig{
 			Dsn: getEnv("DB_DSN", "host=postgres user=postgres password=secret dbname=article_service port=5432 sslmode=disable TimeZone=Asia/Tashkent"),
 		},
-		GRPCPort: getEnv("GRPC_PORT", "7878"),
+		GRPCPort: getEnv("GRPC_PORT", "7373"),
 	}
 }
 
