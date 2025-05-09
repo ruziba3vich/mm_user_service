@@ -317,7 +317,24 @@ func (s *UserService) GetFollowers(ctx context.Context, req *user_protos.GetFoll
 		return nil, status.Error(codes.InvalidArgument, "user ID is required")
 	}
 
-	// followers, err := s.storage.get
+	followers, totalCount, err := s.storage.GetFollowers(ctx, req.UserId, req.GetPage(), req.GetLimit())
+	if err != nil {
+		return nil, err
+	}
+
+	var response user_protos.GetFollowersResponse
+	response.Pagination.Users = make([]*user_protos.User, len(followers))
+	response.Pagination.TotalCount = totalCount
+
+	for i := range followers {
+		userData, err := s.storage.GetUserData(ctx, req.UserId)
+		if err != nil {
+			return nil, err
+		}
+		response.Pagination.Users[i].FullName = userData.UserFullName
+		response.Pagination.Users[i].Username = userData.UserUsername
+		response.Pagination.Users[i].ProfilePicUrl = userData.UserCurrentProfilePic
+	}
 	return nil, status.Error(codes.Unimplemented, "get followers not implemented")
 }
 
