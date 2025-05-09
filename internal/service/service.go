@@ -182,12 +182,18 @@ func (s *UserService) GetUserById(ctx context.Context, req *user_protos.GetUserB
 		return nil, err
 	}
 
+	userData, err := s.storage.GetUserData(ctx, req.GetUserId())
+	if err != nil {
+		s.logger.Error("failed to get user", map[string]any{"error": err.Error()})
+		return nil, err
+	}
+
 	return &user_protos.GetUserByIdResponse{
 		User: &user_protos.User{
-			Id:       user.ID,
-			Username: user.Username,
-			FullName: user.FullName,
-			// TODO: add profile pic url, too
+			Id:            user.ID,
+			Username:      user.Username,
+			FullName:      user.FullName,
+			ProfilePicUrl: userData.UserCurrentProfilePic,
 		},
 	}, nil
 }
