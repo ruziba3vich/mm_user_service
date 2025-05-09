@@ -7,6 +7,7 @@ import (
 	"strings"
 
 	"github.com/ruziba3vich/mm_user_service/internal/models"
+	"github.com/ruziba3vich/mm_user_service/internal/repos"
 	"google.golang.org/grpc/codes"
 	"google.golang.org/grpc/status"
 	"gorm.io/gorm"
@@ -16,7 +17,7 @@ type UserStorage struct {
 	db *gorm.DB
 }
 
-func NewUserStorage(db *gorm.DB) *UserStorage {
+func NewUserStorage(db *gorm.DB) repos.UserRepo {
 	return &UserStorage{
 		db: db,
 	}
