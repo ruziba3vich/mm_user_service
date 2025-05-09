@@ -46,6 +46,7 @@ func (s *UserService) SignUp(ctx context.Context, req *user_protos.SignUpRequest
 	}
 
 	newUser := &models.User{
+		ID:           generateUUID(),
 		FullName:     req.GetFullName(),
 		Username:     req.GetUsername(),
 		PasswordHash: hashedPassword,
