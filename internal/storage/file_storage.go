@@ -9,7 +9,7 @@ import (
 	"github.com/google/uuid"
 	"github.com/minio/minio-go/v7"
 	"github.com/minio/minio-go/v7/pkg/credentials"
-	"github.com/ruziba3vich/mm_article_service/pkg/config"
+	"github.com/ruziba3vich/mm_user_service/pkg/config"
 )
 
 type MinioStorage struct {
@@ -19,27 +19,27 @@ type MinioStorage struct {
 }
 
 func NewMinIOStorage(cfg *config.Config) (*MinioStorage, error) {
-	client, err := minio.New(cfg.MinIO.Endpoint, &minio.Options{
-		Creds:  credentials.NewStaticV4(cfg.MinIO.AccessKey, cfg.MinIO.SecretKey, ""),
+	client, err := minio.New(cfg.MinIoCfg.Endpoint, &minio.Options{
+		Creds:  credentials.NewStaticV4(cfg.MinIoCfg.AccessKeyID, cfg.MinIoCfg.SecretAccessKey, ""),
 		Secure: false,
 	})
 	if err != nil {
 		return nil, err
 	}
-	exists, err := client.BucketExists(context.Background(), cfg.MinIO.Bucket)
+	exists, err := client.BucketExists(context.Background(), cfg.MinIoCfg.Bucket)
 	if err != nil {
 		return nil, err
 	}
 	if !exists {
-		err = client.MakeBucket(context.Background(), cfg.MinIO.Bucket, minio.MakeBucketOptions{})
+		err = client.MakeBucket(context.Background(), cfg.MinIoCfg.Bucket, minio.MakeBucketOptions{})
 		if err != nil {
 			return nil, err
 		}
 	}
 	return &MinioStorage{
 		client:     client,
-		bucketName: cfg.MinIO.Bucket,
-		urlExpiry:  int64(cfg.MinIO.UrlExpiry),
+		bucketName: cfg.MinIoCfg.Bucket,
+		urlExpiry:  int64(cfg.MinIoCfg.URLExpiry),
 	}, nil
 }
 
