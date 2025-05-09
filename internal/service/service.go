@@ -19,6 +19,7 @@ import (
 	"golang.org/x/crypto/bcrypt"
 	"google.golang.org/grpc/codes"
 	"google.golang.org/grpc/status"
+	"google.golang.org/protobuf/types/known/timestamppb"
 )
 
 type UserService struct {
@@ -51,6 +52,7 @@ func (s *UserService) SignUp(ctx context.Context, req *user_protos.SignUpRequest
 		FullName:     req.GetFullName(),
 		Username:     req.GetUsername(),
 		PasswordHash: hashedPassword,
+		CreatedAt:    time.Now(),
 	}
 
 	createdUser, err := s.storage.CreateUser(ctx, newUser)
@@ -198,10 +200,12 @@ func (s *UserService) GetUserById(ctx context.Context, req *user_protos.GetUserB
 
 	return &user_protos.GetUserByIdResponse{
 		User: &user_protos.User{
-			Id:            user.ID,
-			Username:      user.Username,
-			FullName:      user.FullName,
-			ProfilePicUrl: userData.UserCurrentProfilePic,
+			Id:             user.ID,
+			Username:       user.Username,
+			FullName:       user.FullName,
+			ProfilePicUrl:  userData.UserCurrentProfilePic,
+			FollowersCount: int32(user.FollowersCount),
+			CreatedAt:      timestamppb.New(user.CreatedAt),
 		},
 	}, nil
 }
@@ -329,25 +333,51 @@ func (s *UserService) GetFollowers(ctx context.Context, req *user_protos.GetFoll
 		return nil, status.Error(codes.InvalidArgument, "user ID is required")
 	}
 
-	followers, totalCount, err := s.storage.GetFollowers(ctx, req.UserId, req.GetPage(), req.GetLimit())
+	page, limit := validatePagination(req.GetPage(), req.GetLimit())
+
+	followers, totalCount, err := s.storage.GetFollowers(ctx, req.UserId, page, limit)
 	if err != nil {
-		return nil, err
+		s.logger.Error("failed to get followers",
+			map[string]any{"error": err.Error(), "user_id": req.UserId})
+		return nil, status.Error(codes.Internal, "failed to get followers")
 	}
 
-	var response user_protos.GetFollowersResponse
-	response.Pagination.Users = make([]*user_protos.User, len(followers))
-	response.Pagination.TotalCount = int32(totalCount)
+	response := &user_protos.GetFollowersResponse{
+		Pagination: &user_protos.PaginationResponse{
+			Users:      make([]*user_protos.User, 0, len(followers)),
+			TotalCount: int32(totalCount),
+			Page:       page,
+			Limit:      limit,
+		},
+	}
 
-	for i := range followers {
-		userData, err := s.storage.GetUserData(ctx, req.UserId)
+	for _, follower := range followers {
+		userData, err := s.storage.GetUserData(ctx, follower.ID)
 		if err != nil {
-			return nil, err
+			s.logger.Warn("failed to get follower details",
+				map[string]any{"error": err.Error(), "follower_id": follower.ID})
+			continue
 		}
-		response.Pagination.Users[i].FullName = userData.UserFullName
-		response.Pagination.Users[i].Username = userData.UserUsername
-		response.Pagination.Users[i].ProfilePicUrl = userData.UserCurrentProfilePic
+
+		response.Pagination.Users = append(response.Pagination.Users, &user_protos.User{
+			Id:            follower.ID,
+			FullName:      userData.UserFullName,
+			Username:      userData.UserUsername,
+			ProfilePicUrl: userData.UserCurrentProfilePic,
+		})
 	}
-	return nil, status.Error(codes.Unimplemented, "get followers not implemented")
+
+	return response, nil
+}
+
+func validatePagination(page, limit int32) (int32, int32) {
+	if page < 1 {
+		page = 1
+	}
+	if limit < 1 || limit > 100 {
+		limit = 20
+	}
+	return page, limit
 }
 
 func generateTokens(userID string, secret string, accessExpiry time.Duration, refreshExpiry time.Duration) (accessToken string, refreshToken models.TokenWithMetadata, err error) {
