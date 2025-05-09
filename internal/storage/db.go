@@ -1,8 +1,8 @@
 package storage
 
 import (
-	"github.com/ruziba3vich/mm_article_service/pkg/config"
 	"github.com/ruziba3vich/mm_user_service/internal/models"
+	"github.com/ruziba3vich/mm_user_service/pkg/config"
 	"gorm.io/driver/postgres"
 	"gorm.io/gorm"
 )
