@@ -92,7 +92,7 @@ func (s *UserStorage) RemoveProfilePicture(ctx context.Context, userId, fileName
 		Delete(&models.ProfilePicture{})
 
 	if result.Error != nil {
-		if errors.Is(gorm.ErrRecordNotFound, result.Error) {
+		if errors.Is(result.Error, gorm.ErrRecordNotFound) {
 			return status.Error(codes.NotFound, "profile picture not found")
 		}
 		return result.Error
