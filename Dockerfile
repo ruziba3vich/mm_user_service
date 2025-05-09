@@ -17,9 +17,6 @@ WORKDIR /app
 
 COPY --from=builder /app/bin/server .
 
-COPY configs/ ./configs/
-COPY .env .
-
 EXPOSE 7373
 
 CMD ["./server"]
