@@ -36,7 +36,7 @@ func main() {
 	app.Run()
 }
 
-// Create a new gRPC server and register the logging service
+// Create a new gRPC server and register the service
 func newGrpcServer(srv *service.UserService) *grpc.Server {
 	server := grpc.NewServer()
 	user_protos.RegisterUserServiceServer(server, srv)
@@ -52,7 +52,7 @@ func registerHooks(
 ) {
 	lc.Append(fx.Hook{
 		OnStart: func(context.Context) error {
-			log.Println("Starting logging service...")
+			log.Println("Starting user service...")
 
 			listener, err := net.Listen("tcp", fmt.Sprintf(":%s", cfg.GRPCPort))
 			if err != nil {
@@ -67,11 +67,11 @@ func registerHooks(
 				}
 			}()
 
-			log.Println("Logging service started")
+			log.Println("User service started")
 			return nil
 		},
 		OnStop: func(context.Context) error {
-			log.Println("Stopping logging service...")
+			log.Println("Stopping user service...")
 
 			grpcServer.GracefulStop()
 			sqlDB, err := db.DB()
@@ -83,7 +83,7 @@ func registerHooks(
 				log.Printf("Error closing database connection: %v", err)
 			}
 
-			log.Println("Logging service stopped")
+			log.Println("User service stopped")
 			return nil
 		},
 	})
@@ -99,5 +99,5 @@ func registerHooks(
 }
 
 func newLogger() (*logger.Logger, error) {
-	return logger.NewLogger("/app/article_service.log")
+	return logger.NewLogger("/app/user_service.log")
 }
