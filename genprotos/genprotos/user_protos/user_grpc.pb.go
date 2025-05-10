@@ -31,6 +31,7 @@ const (
 	UserService_FollowUser_FullMethodName           = "/user_protos.UserService/FollowUser"
 	UserService_Unfollow_FullMethodName             = "/user_protos.UserService/Unfollow"
 	UserService_GetFollowers_FullMethodName         = "/user_protos.UserService/GetFollowers"
+	UserService_StreamNotifications_FullMethodName  = "/user_protos.UserService/StreamNotifications"
 )
 
 // UserServiceClient is the client API for UserService service.
@@ -49,6 +50,7 @@ type UserServiceClient interface {
 	FollowUser(ctx context.Context, in *FollowUserRequest, opts ...grpc.CallOption) (*FollowUserResponse, error)
 	Unfollow(ctx context.Context, in *UnfollowRequest, opts ...grpc.CallOption) (*UnfollowResponse, error)
 	GetFollowers(ctx context.Context, in *GetFollowersRequest, opts ...grpc.CallOption) (*GetFollowersResponse, error)
+	StreamNotifications(ctx context.Context, in *NotificationRequest, opts ...grpc.CallOption) (grpc.ServerStreamingClient[Notification], error)
 }
 
 type userServiceClient struct {
@@ -179,6 +181,25 @@ func (c *userServiceClient) GetFollowers(ctx context.Context, in *GetFollowersRe
 	return out, nil
 }
 
+func (c *userServiceClient) StreamNotifications(ctx context.Context, in *NotificationRequest, opts ...grpc.CallOption) (grpc.ServerStreamingClient[Notification], error) {
+	cOpts := append([]grpc.CallOption{grpc.StaticMethod()}, opts...)
+	stream, err := c.cc.NewStream(ctx, &UserService_ServiceDesc.Streams[0], UserService_StreamNotifications_FullMethodName, cOpts...)
+	if err != nil {
+		return nil, err
+	}
+	x := &grpc.GenericClientStream[NotificationRequest, Notification]{ClientStream: stream}
+	if err := x.ClientStream.SendMsg(in); err != nil {
+		return nil, err
+	}
+	if err := x.ClientStream.CloseSend(); err != nil {
+		return nil, err
+	}
+	return x, nil
+}
+
+// This type alias is provided for backwards compatibility with existing code that references the prior non-generic stream type by name.
+type UserService_StreamNotificationsClient = grpc.ServerStreamingClient[Notification]
+
 // UserServiceServer is the server API for UserService service.
 // All implementations must embed UnimplementedUserServiceServer
 // for forward compatibility.
@@ -195,6 +216,7 @@ type UserServiceServer interface {
 	FollowUser(context.Context, *FollowUserRequest) (*FollowUserResponse, error)
 	Unfollow(context.Context, *UnfollowRequest) (*UnfollowResponse, error)
 	GetFollowers(context.Context, *GetFollowersRequest) (*GetFollowersResponse, error)
+	StreamNotifications(*NotificationRequest, grpc.ServerStreamingServer[Notification]) error
 	mustEmbedUnimplementedUserServiceServer()
 }
 
@@ -240,6 +262,9 @@ func (UnimplementedUserServiceServer) Unfollow(context.Context, *UnfollowRequest
 }
 func (UnimplementedUserServiceServer) GetFollowers(context.Context, *GetFollowersRequest) (*GetFollowersResponse, error) {
 	return nil, status.Errorf(codes.Unimplemented, "method GetFollowers not implemented")
+}
+func (UnimplementedUserServiceServer) StreamNotifications(*NotificationRequest, grpc.ServerStreamingServer[Notification]) error {
+	return status.Errorf(codes.Unimplemented, "method StreamNotifications not implemented")
 }
 func (UnimplementedUserServiceServer) mustEmbedUnimplementedUserServiceServer() {}
 func (UnimplementedUserServiceServer) testEmbeddedByValue()                     {}
@@ -478,6 +503,17 @@ func _UserService_GetFollowers_Handler(srv interface{}, ctx context.Context, dec
 	return interceptor(ctx, in, info, handler)
 }
 
+func _UserService_StreamNotifications_Handler(srv interface{}, stream grpc.ServerStream) error {
+	m := new(NotificationRequest)
+	if err := stream.RecvMsg(m); err != nil {
+		return err
+	}
+	return srv.(UserServiceServer).StreamNotifications(m, &grpc.GenericServerStream[NotificationRequest, Notification]{ServerStream: stream})
+}
+
+// This type alias is provided for backwards compatibility with existing code that references the prior non-generic stream type by name.
+type UserService_StreamNotificationsServer = grpc.ServerStreamingServer[Notification]
+
 // UserService_ServiceDesc is the grpc.ServiceDesc for UserService service.
 // It's only intended for direct use with grpc.RegisterService,
 // and not to be introspected or modified (even as a copy)
@@ -534,6 +570,12 @@ var UserService_ServiceDesc = grpc.ServiceDesc{
 			Handler:    _UserService_GetFollowers_Handler,
 		},
 	},
-	Streams:  []grpc.StreamDesc{},
+	Streams: []grpc.StreamDesc{
+		{
+			StreamName:    "StreamNotifications",
+			Handler:       _UserService_StreamNotifications_Handler,
+			ServerStreams: true,
+		},
+	},
 	Metadata: "mm_user_protos/user.proto",
 }

@@ -7,7 +7,6 @@ require (
 	github.com/google/uuid v1.6.0
 	github.com/joho/godotenv v1.5.1
 	github.com/minio/minio-go/v7 v7.0.91
-	github.com/oklog/ulid/v2 v2.1.0
 	github.com/ruziba3vich/prodonik_lgger v1.0.0
 	go.uber.org/fx v1.23.0
 	golang.org/x/crypto v0.36.0
