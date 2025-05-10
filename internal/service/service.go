@@ -6,11 +6,9 @@ import (
 	"encoding/hex"
 	"errors"
 	"fmt"
-	"math/rand"
 	"time"
 
 	"github.com/golang-jwt/jwt/v5"
-	"github.com/oklog/ulid/v2"
 	"github.com/ruziba3vich/mm_user_service/genprotos/genprotos/user_protos"
 	"github.com/ruziba3vich/mm_user_service/internal/models"
 	"github.com/ruziba3vich/mm_user_service/internal/repos"
@@ -428,21 +426,22 @@ func generateTokens(userID string, secret string, accessExpiry time.Duration, re
 
 func generateUUID() string {
 	now := time.Now()
-	entropySource := ulid.Monotonic(rand.New(rand.NewSource(now.UnixNano())), 0)
-	generatedID := ulid.MustNew(ulid.Timestamp(now), entropySource)
-
-	uuidBytes := make([]byte, 16)
-	copy(uuidBytes[:10], generatedID[:10])
-
-	uuidBytes[6] = (uuidBytes[6] & 0x0f) | 0x40
-	uuidBytes[8] = (uuidBytes[8] & 0x3f) | 0x80
-
-	return fmt.Sprintf("%08x-%04x-%04x-%04x-%012x",
-		uuidBytes[0:4],
-		uuidBytes[4:6],
-		uuidBytes[6:8],
-		uuidBytes[8:10],
-		uuidBytes[10:16])
+	timeComponent := fmt.Sprintf("%04d%02d%02d%02d%02d%02d%09d",
+		now.Year(), now.Month(), now.Day(),
+		now.Hour(), now.Minute(), now.Second(),
+		now.Nanosecond())
+	if len(timeComponent) > 32 {
+		timeComponent = timeComponent[:32]
+	}
+	for len(timeComponent) < 32 {
+		timeComponent += "0"
+	}
+	return fmt.Sprintf("%s-%s-%s-%s-%s",
+		timeComponent[0:8],
+		timeComponent[8:12],
+		timeComponent[12:16],
+		timeComponent[16:20],
+		timeComponent[20:32])
 }
 
 func hashToken(token string) string {
