@@ -6,7 +6,6 @@ import (
 	"encoding/hex"
 	"errors"
 	"fmt"
-	"os"
 	"time"
 
 	"github.com/confluentinc/confluent-kafka-go/v2/kafka"
@@ -28,13 +27,15 @@ type UserService struct {
 	logger  *lgger.Logger
 	user_protos.UnimplementedUserServiceServer
 	fileStorage *storage.MinioStorage
+	consumer    *kafka.Consumer
 }
 
-func NewUserService(storage repos.UserRepo, fileStorage *storage.MinioStorage, logger *lgger.Logger) *UserService {
+func NewUserService(storage repos.UserRepo, fileStorage *storage.MinioStorage, consumer *kafka.Consumer, logger *lgger.Logger) *UserService {
 	return &UserService{
 		storage:     storage,
 		logger:      logger,
 		fileStorage: fileStorage,
+		consumer:    consumer,
 	}
 }
 
@@ -377,32 +378,6 @@ func (s *UserService) StreamNotifications(req *user_protos.NotificationRequest, 
 		return status.Error(codes.InvalidArgument, "user_id is required")
 	}
 
-	kafkaServers := os.Getenv("KAFKA_SERVERS")
-	if kafkaServers == "" {
-		kafkaServers = "kafka:9092"
-		s.logger.Warn("KAFKA_SERVERS not set, using default", map[string]any{"kafka_servers": kafkaServers})
-	}
-
-	consumer, err := kafka.NewConsumer(&kafka.ConfigMap{
-		"bootstrap.servers": kafkaServers,
-		"group.id":          req.UserId,
-		"auto.offset.reset": "latest",
-	}) // TODO: use dependency injection to get this object
-	if err != nil {
-		s.logger.Error("failed to create Kafka consumer", map[string]any{"kafka_servers": kafkaServers, "user_id": req.UserId, "error": err.Error()})
-		return status.Errorf(codes.Internal, "failed to create consumer: %v", err)
-	}
-	defer consumer.Close()
-
-	s.logger.Info("connected to Kafka", map[string]any{"kafka_servers": kafkaServers, "user_id": req.UserId})
-
-	err = consumer.SubscribeTopics([]string{"notifications"}, nil)
-	if err != nil {
-		s.logger.Error("failed to subscribe to notifications topic", map[string]any{"user_id": req.UserId, "error": err.Error()})
-		return status.Errorf(codes.Internal, "failed to subscribe: %v", err)
-	}
-	s.logger.Info("subscribed to notifications topic", map[string]any{"user_id": req.UserId})
-
 	shutdown := make(chan struct{})
 	go func() {
 		<-stream.Context().Done()
@@ -416,7 +391,7 @@ func (s *UserService) StreamNotifications(req *user_protos.NotificationRequest, 
 			s.logger.Info("stream closed", map[string]any{"user_id": req.UserId})
 			return nil
 		default:
-			ev := consumer.Poll(100)
+			ev := s.consumer.Poll(100)
 			if ev == nil {
 				continue
 			}
