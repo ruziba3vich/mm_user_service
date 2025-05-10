@@ -8,12 +8,14 @@ import (
 	"fmt"
 	"time"
 
+	"github.com/confluentinc/confluent-kafka-go/kafka"
 	"github.com/golang-jwt/jwt/v5"
 	"github.com/ruziba3vich/mm_user_service/genprotos/genprotos/user_protos"
 	"github.com/ruziba3vich/mm_user_service/internal/models"
 	"github.com/ruziba3vich/mm_user_service/internal/repos"
 	"github.com/ruziba3vich/mm_user_service/internal/storage"
 	lgger "github.com/ruziba3vich/prodonik_lgger"
+	"go.starlark.net/lib/proto"
 	"golang.org/x/crypto/bcrypt"
 	"google.golang.org/grpc/codes"
 	"google.golang.org/grpc/status"
@@ -366,6 +368,57 @@ func (s *UserService) GetFollowers(ctx context.Context, req *user_protos.GetFoll
 	}
 
 	return response, nil
+}
+
+func (s *UserService) StreamNotifications(req *user_protos.NotificationRequest, stream user_protos.UserService_StreamNotificationsServer) error {
+	if req.UserId == "" {
+		return status.Error(codes.InvalidArgument, "user_id is required")
+	}
+
+	consumer, err := kafka.NewConsumer(&kafka.ConfigMap{
+		"bootstrap.servers": "localhost:9092",
+		"group.id":          req.UserId,
+		"auto.offset.reset": "latest",
+	})
+	if err != nil {
+		return status.Errorf(codes.Internal, "failed to create consumer: %v", err)
+	}
+	defer consumer.Close()
+
+	err = consumer.SubscribeTopics([]string{"notifications"}, nil)
+	if err != nil {
+		return status.Errorf(codes.Internal, "failed to subscribe: %v", err)
+	}
+
+	for {
+		select {
+		case <-stream.Context().Done():
+			return nil
+		default:
+			ev := consumer.Poll(100)
+			if ev == nil {
+				continue
+			}
+			msg, ok := ev.(*kafka.Message)
+			if !ok {
+				continue
+			}
+			if msg.Value == nil {
+				continue
+			}
+
+			var notif user_protos.Notification
+			if err := proto.Unmarshal(msg.Value, &notif); err != nil {
+				continue
+			}
+			if notif.ReceiverId != req.UserId {
+				continue
+			}
+			if err := stream.Send(&notif); err != nil {
+				return err
+			}
+		}
+	}
 }
 
 func validatePagination(page, limit int32) (int32, int32) {
