@@ -6,6 +6,7 @@ import (
 	"encoding/hex"
 	"errors"
 	"fmt"
+	"sync"
 	"time"
 
 	"github.com/confluentinc/confluent-kafka-go/v2/kafka"
@@ -18,7 +19,6 @@ import (
 	"golang.org/x/crypto/bcrypt"
 	"google.golang.org/grpc/codes"
 	"google.golang.org/grpc/status"
-	"google.golang.org/protobuf/proto"
 	"google.golang.org/protobuf/types/known/timestamppb"
 )
 
@@ -28,15 +28,34 @@ type UserService struct {
 	user_protos.UnimplementedUserServiceServer
 	fileStorage *storage.MinioStorage
 	consumer    *kafka.Consumer
+	topic       string
+	partitions  int32
+	activeUsers map[string]chan *user_protos.Notification
+	mu          *sync.RWMutex
+	done        chan struct{}
 }
 
-func NewUserService(storage repos.UserRepo, fileStorage *storage.MinioStorage, consumer *kafka.Consumer, logger *lgger.Logger) *UserService {
+func NewUserService(
+	storage repos.UserRepo,
+	fileStorage *storage.MinioStorage,
+	consumer *kafka.Consumer,
+	logger *lgger.Logger,
+	topic string,
+	partitions int32,
+	mu *sync.RWMutex,
+	done chan struct{}) *UserService {
 	return &UserService{
 		storage:     storage,
 		logger:      logger,
 		fileStorage: fileStorage,
 		consumer:    consumer,
+		activeUsers: make(map[string]chan *user_protos.Notification),
+		mu:          mu,
+		topic:       topic,
+		partitions:  partitions,
+		done:        done,
 	}
+
 }
 
 func (s *UserService) SignUp(ctx context.Context, req *user_protos.SignUpRequest) (*user_protos.SignUpResponse, error) {
@@ -370,69 +389,6 @@ func (s *UserService) GetFollowers(ctx context.Context, req *user_protos.GetFoll
 	}
 
 	return response, nil
-}
-
-func (s *UserService) StreamNotifications(req *user_protos.NotificationRequest, stream user_protos.UserService_StreamNotificationsServer) error {
-	if req.UserId == "" {
-		s.logger.Error("user_id is required", map[string]any{"method": "StreamNotifications"})
-		return status.Error(codes.InvalidArgument, "user_id is required")
-	}
-
-	shutdown := make(chan struct{})
-	go func() {
-		<-stream.Context().Done()
-		s.logger.Info("stream context cancelled", map[string]any{"user_id": req.UserId})
-		close(shutdown)
-	}()
-
-	for {
-		select {
-		case <-shutdown:
-			s.logger.Info("stream closed", map[string]any{"user_id": req.UserId})
-			return nil
-		default:
-			ev := s.consumer.Poll(100)
-			if ev == nil {
-				continue
-			}
-
-			switch e := ev.(type) {
-			case *kafka.Message:
-				if e.Value == nil {
-					s.logger.Warn("received empty Kafka message", map[string]any{"user_id": req.UserId, "topic": e.TopicPartition.Topic})
-					continue
-				}
-
-				var notif user_protos.Notification
-				if err := proto.Unmarshal(e.Value, &notif); err != nil {
-					s.logger.Error("failed to unmarshal notification", map[string]any{"user_id": req.UserId, "topic": e.TopicPartition.Topic, "error": err.Error()})
-					continue
-				}
-
-				if notif.ReceiverId != req.UserId {
-					s.logger.Debug("skipping notification for different user", map[string]any{"user_id": req.UserId, "receiver_id": notif.ReceiverId})
-					continue
-				}
-
-				s.logger.Info("sending notification", map[string]any{"user_id": req.UserId, "notification_type": notif.Type})
-
-				if err := stream.Send(&notif); err != nil {
-					s.logger.Error("failed to send notification", map[string]any{"user_id": req.UserId, "notification_type": notif.Type, "error": err.Error()})
-					return status.Errorf(codes.Internal, "failed to send notification: %v", err)
-				}
-
-			case kafka.Error:
-				s.logger.Error("Kafka error", map[string]any{"user_id": req.UserId, "error": e.Error()})
-				if e.Code() == kafka.ErrAllBrokersDown {
-					return status.Errorf(codes.Unavailable, "kafka brokers unavailable: %v", e)
-				}
-				continue
-
-			default:
-				s.logger.Debug("ignored unknown Kafka event", map[string]any{"user_id": req.UserId, "event_type": fmt.Sprintf("%T", e)})
-			}
-		}
-	}
 }
 
 func validatePagination(page, limit int32) (int32, int32) {
