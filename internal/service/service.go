@@ -6,10 +6,8 @@ import (
 	"encoding/hex"
 	"errors"
 	"fmt"
-	"sync"
 	"time"
 
-	"github.com/confluentinc/confluent-kafka-go/v2/kafka"
 	"github.com/golang-jwt/jwt/v5"
 	"github.com/ruziba3vich/mm_user_service/genprotos/genprotos/user_protos"
 	"github.com/ruziba3vich/mm_user_service/internal/models"
@@ -27,33 +25,16 @@ type UserService struct {
 	logger  *lgger.Logger
 	user_protos.UnimplementedUserServiceServer
 	fileStorage *storage.MinioStorage
-	consumer    *kafka.Consumer
-	topic       string
-	partitions  int32
-	activeUsers map[string]chan *user_protos.Notification
-	mu          *sync.RWMutex
-	done        chan struct{}
 }
 
 func NewUserService(
 	storage repos.UserRepo,
 	fileStorage *storage.MinioStorage,
-	consumer *kafka.Consumer,
-	logger *lgger.Logger,
-	topic string,
-	partitions int32,
-	mu *sync.RWMutex,
-	done chan struct{}) *UserService {
+	logger *lgger.Logger) *UserService {
 	return &UserService{
 		storage:     storage,
 		logger:      logger,
 		fileStorage: fileStorage,
-		consumer:    consumer,
-		activeUsers: make(map[string]chan *user_protos.Notification),
-		mu:          mu,
-		topic:       topic,
-		partitions:  partitions,
-		done:        done,
 	}
 
 }
