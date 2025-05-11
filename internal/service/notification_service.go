@@ -25,7 +25,7 @@ type UserNotificationService struct {
 }
 
 func NewUserNotificationService(cfg *config.Config, logger *lgger.Logger, concumer *kafka.Consumer, partitions int32) *UserNotificationService {
-	return &UserNotificationService{
+	notificationService := &UserNotificationService{
 		config:      cfg,
 		logger:      logger,
 		consumer:    concumer,
@@ -35,6 +35,8 @@ func NewUserNotificationService(cfg *config.Config, logger *lgger.Logger, concum
 		mu:          &sync.RWMutex{},
 		done:        make(chan struct{}),
 	}
+	go notificationService.consumeMessages()
+	return notificationService
 }
 
 func (s *UserNotificationService) Close() error {
