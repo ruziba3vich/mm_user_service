@@ -538,14 +538,46 @@ func (s *UserService) StreamNotifications(req *user_protos.NotificationRequest, 
 				"user_id":           userId,
 				"notification_type": notification.Type,
 			})
+			ctx, cancel := context.WithTimeout(context.Background(), time.Second*5)
+			defer cancel()
 
-			if err := stream.Send(notification); err != nil {
-				s.logger.Error("failed to send notification to gRPC stream", map[string]any{
-					"user_id": userId,
-					"error":   err.Error(),
+			if notification.Type == "NEW_POST" {
+				user, err := s.GetUserById(ctx, &user_protos.GetUserByIdRequest{
+					UserId: req.UserId,
 				})
+				if err != nil {
+					s.logger.Error("user could not be found", map[string]any{"user_id": userId})
+					return status.Error(codes.NotFound, "user not found")
+				}
+				followers, err := s.GetFollowers(ctx, &user_protos.GetFollowersRequest{
+					UserId: req.UserId,
+					Page:   1,
+					Limit:  user.User.FollowersCount,
+				})
+				if err != nil {
+					s.logger.Error("could not fetch followers of user", map[string]any{"user_id": userId})
+					return status.Error(codes.Internal, "followers could not be fetched")
+				}
+				for i := range followers.Pagination.Users {
+					notification.ReceiverId = followers.Pagination.Users[i].Id
+					if err := stream.Send(notification); err != nil {
+						s.logger.Error("failed to send notification to gRPC stream", map[string]any{
+							"user_id": userId,
+							"error":   err.Error(),
+						})
 
-				return status.Errorf(codes.Internal, "failed to send notification: %v", err)
+						return status.Errorf(codes.Internal, "failed to send notification: %v", err)
+					}
+				}
+			} else {
+				if err := stream.Send(notification); err != nil {
+					s.logger.Error("failed to send notification to gRPC stream", map[string]any{
+						"user_id": userId,
+						"error":   err.Error(),
+					})
+
+					return status.Errorf(codes.Internal, "failed to send notification: %v", err)
+				}
 			}
 		}
 	}
