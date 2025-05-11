@@ -24,17 +24,20 @@ type UserService struct {
 	storage repos.UserRepo
 	logger  *lgger.Logger
 	user_protos.UnimplementedUserServiceServer
-	fileStorage *storage.MinioStorage
+	fileStorage         *storage.MinioStorage
+	notificationService *UserNotificationService
 }
 
 func NewUserService(
 	storage repos.UserRepo,
 	fileStorage *storage.MinioStorage,
-	logger *lgger.Logger) *UserService {
+	logger *lgger.Logger,
+	notificationService *UserNotificationService) *UserService {
 	return &UserService{
-		storage:     storage,
-		logger:      logger,
-		fileStorage: fileStorage,
+		storage:             storage,
+		logger:              logger,
+		fileStorage:         fileStorage,
+		notificationService: notificationService,
 	}
 
 }
@@ -496,4 +499,54 @@ func verifyToken(tokenString, secret string) (*models.TokenClaims, error) {
 	}
 
 	return nil, errors.New("invalid token claims")
+}
+
+func (s *UserService) StreamNotifications(req *user_protos.NotificationRequest, stream user_protos.UserService_StreamNotificationsServer) error {
+	if req.UserId == "" {
+		s.logger.Error("user_id is required for StreamNotifications", map[string]any{"method": "StreamNotifications"})
+		return status.Error(codes.InvalidArgument, "user_id is required")
+	}
+
+	userId := req.UserId
+	s.logger.Info("user attempting to connect to notification stream", map[string]any{"user_id": userId})
+	notificationsChan := s.notificationService.registerUser(userId)
+
+	defer func() {
+		s.notificationService.unregisterUser(userId)
+		s.logger.Info("notification stream ended, user unregistered", map[string]any{"user_id": userId})
+	}()
+
+	s.logger.Info("user notification stream started", map[string]any{"user_id": userId})
+
+	for {
+		select {
+		case <-stream.Context().Done():
+			s.logger.Info("client disconnected, closing notification stream", map[string]any{
+				"user_id": userId,
+				"error":   stream.Context().Err(),
+			})
+
+			return stream.Context().Err()
+
+		case notification, ok := <-notificationsChan:
+			if !ok {
+				s.logger.Warn("notificationsChan closed for user, possibly service shutdown", map[string]any{"user_id": userId})
+				return status.Error(codes.Unavailable, "notification service unavailable or user channel closed")
+			}
+
+			s.logger.Info("sending notification to user via gRPC stream", map[string]any{
+				"user_id":           userId,
+				"notification_type": notification.Type,
+			})
+
+			if err := stream.Send(notification); err != nil {
+				s.logger.Error("failed to send notification to gRPC stream", map[string]any{
+					"user_id": userId,
+					"error":   err.Error(),
+				})
+
+				return status.Errorf(codes.Internal, "failed to send notification: %v", err)
+			}
+		}
+	}
 }
