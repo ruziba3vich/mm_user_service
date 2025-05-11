@@ -9,6 +9,7 @@ import (
 	"os/signal"
 	"syscall"
 
+	"github.com/confluentinc/confluent-kafka-go/v2/kafka"
 	"github.com/ruziba3vich/mm_user_service/genprotos/genprotos/user_protos"
 	"github.com/ruziba3vich/mm_user_service/internal/service"
 	"github.com/ruziba3vich/mm_user_service/internal/storage"
@@ -23,6 +24,7 @@ func main() {
 	app := fx.New(
 		fx.Provide(
 			config.LoadConfig,
+			newKafkaConsumer,
 			newLogger,
 			storage.NewGORM,
 			storage.NewUserStorage,
@@ -100,4 +102,29 @@ func registerHooks(
 
 func newLogger() (*logger.Logger, error) {
 	return logger.NewLogger("/app/user_service.log")
+}
+
+func newKafkaConsumer(cfg *config.Config) (*kafka.Consumer, error) {
+	config := &kafka.ConfigMap{
+		"bootstrap.servers":       "kafka:9092",
+		"group.id":                "notification-service-group",
+		"auto.offset.reset":       "latest",
+		"enable.auto.commit":      true,
+		"session.timeout.ms":      6000,
+		"heartbeat.interval.ms":   2000,
+		"max.poll.interval.ms":    300000,
+		"socket.keepalive.enable": true,
+	} // TODO: get kafka config values from cfg
+
+	consumer, err := kafka.NewConsumer(config)
+	if err != nil {
+		return nil, fmt.Errorf("failed to create Kafka consumer: %s", err.Error())
+	}
+
+	err = consumer.SubscribeTopics([]string{"user.notifications"}, nil)
+	if err != nil {
+		return nil, fmt.Errorf("failed to subscribe to topics: %s", err.Error())
+	}
+
+	return consumer, nil
 }
